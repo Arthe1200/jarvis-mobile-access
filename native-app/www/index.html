@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050b16">
+  <title>JARVIS</title>
+  <style>
+    :root{color-scheme:dark;--bg:#050b16;--panel:#0b1628;--line:#1b3552;--cyan:#5ee7ff;--muted:#9cb2c9}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100svh;padding:calc(env(safe-area-inset-top) + 24px) 20px calc(env(safe-area-inset-bottom) + 24px);display:grid;place-items:center;background:radial-gradient(ellipse at 50% 0%,#123354 0%,var(--bg) 58%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#edf8ff}
+    main{width:min(100%,460px);padding:26px 22px;border:1px solid var(--line);border-radius:26px;background:linear-gradient(160deg,#0c1a2cf2,#07101df5);box-shadow:0 24px 80px #0008}
+    .mark{width:66px;height:66px;border:1px solid #5ee7ff88;border-radius:20px;display:grid;place-items:center;margin-bottom:20px;color:var(--cyan);font-size:26px;font-weight:800;letter-spacing:2px;box-shadow:inset 0 0 24px #5ee7ff12,0 0 35px #5ee7ff12}
+    .eyebrow{font-size:11px;letter-spacing:3px;color:var(--cyan);font-weight:700}
+    h1{font-size:30px;letter-spacing:2px;margin:8px 0}
+    p{color:var(--muted);line-height:1.55;font-size:14px}
+    label{display:block;margin:22px 0 8px;font-size:12px;font-weight:700;color:#c8dced}
+    input{width:100%;padding:15px 13px;border:1px solid #28445f;border-radius:12px;background:#030914;color:white;font-size:14px;outline:none}
+    input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #5ee7ff18}
+    button{width:100%;border:0;border-radius:12px;padding:15px;margin-top:12px;background:var(--cyan);color:#03101a;font-weight:800;font-size:15px}
+    .secondary{background:#102239;color:#d9efff;border:1px solid #28445f}
+    .status{font-size:12px;min-height:18px;margin-top:12px;color:var(--muted)}
+    .note{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:12px}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">J.</div>
+    <div class="eyebrow">PERSONAL SYSTEM · IOS</div>
+    <h1>JARVIS</h1>
+    <p>Application compagnon de ton assistant personnel. Connecte-toi à ton PC JARVIS pour ouvrir son interface mobile.</p>
+    <form id="access-form">
+      <label for="url">ADRESSE DE JARVIS</label>
+      <input id="url" type="url" inputmode="url" placeholder="https://ton-adresse.example" autocomplete="url" required>
+      <button type="submit">SE CONNECTER ↗</button>
+      <button class="secondary" id="forget" type="button">Effacer l’adresse mémorisée</button>
+    </form>
+    <div class="status" id="status" role="status"></div>
+    <p class="note">Prototype initial. L’adresse est conservée sur cet iPhone uniquement. Utilise une adresse HTTPS sécurisée et ne partage pas un lien d’accès privé.</p>
+  </main>
+  <script>
+    const field = document.getElementById('url');
+    const status = document.getElementById('status');
+    try { field.value = localStorage.getItem('jarvisServerUrl') || ''; } catch(e) {}
+    function validateUrl(value) {
+      const u = new URL(value.trim());
+      if (u.protocol !== 'https:' || u.username || u.password) throw new Error('Utilise une adresse HTTPS valide.');
+      return u.origin;
+    }
+    document.getElementById('access-form').addEventListener('submit', e => {
+      e.preventDefault();
+      try {
+        const url = validateUrl(field.value);
+        try { localStorage.setItem('jarvisServerUrl', url); } catch(e) {}
+        status.textContent = 'Connexion à JARVIS…';
+        location.href = url + '/mobile';
+      } catch(err) { status.textContent = err.message || 'Adresse invalide.'; }
+    });
+    document.getElementById('forget').addEventListener('click', () => {
+      field.value = '';
+      try { localStorage.removeItem('jarvisServerUrl'); } catch(e) {}
+      status.textContent = 'Adresse effacée de cet appareil.';
+    });
+  </script>
+</body>
+</html>
