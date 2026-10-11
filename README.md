@@ -1,20 +1,28 @@
 # JARVIS Mobile Access
 
-Page d'accueil statique pour ouvrir l'interface mobile de JARVIS depuis un iPhone.
+Ce dépôt contient deux éléments :
+- une page d'accès statique publiée avec GitHub Pages ;
+- un premier prototype d'application iOS Capacitor, compilé sur un runner macOS de GitHub Actions.
 
-## Publication avec GitHub Pages
+## Page d'accès web
 
-1. Ouvre **Settings** dans ce dépôt.
-2. Dans le menu **Pages**, sous **Build and deployment**, choisis **Deploy from a branch**.
-3. Sélectionne la branche `main` et le dossier `/(root)`, puis clique sur **Save**.
-4. Attends la fin du déploiement. L'adresse attendue sera :
-   https://arthe1200.github.io/jarvis-mobile-access/
+Adresse : https://arthe1200.github.io/jarvis-mobile-access/
 
-## Utilisation
+La page demande l'adresse HTTPS actuelle du Cloudflare Quick Tunnel et ouvre ensuite `/mobile` sur ce tunnel. Le Quick Tunnel change généralement à chaque redémarrage, donc cette page ne peut pas découvrir automatiquement la nouvelle adresse.
 
-La page demande l'adresse HTTPS actuelle du Cloudflare Quick Tunnel et ouvre ensuite `/mobile` sur ce tunnel. Elle peut mémoriser cette adresse uniquement dans le stockage local du navigateur sur cet appareil.
+## Construire le prototype iOS
 
-Le Quick Tunnel change généralement à chaque redémarrage : il faut donc saisir la nouvelle adresse quand cela arrive.
+1. Ouvre l'onglet **Actions** du dépôt : https://github.com/Arthe1200/jarvis-mobile-access/actions
+2. Sélectionne **Build JARVIS iOS app**.
+3. Clique sur **Run workflow**, puis confirme sur la branche `main`.
+4. Attends que le workflow soit terminé avec le statut vert.
+5. Ouvre l'exécution et télécharge l'artifact **JARVIS-unsigned-IPA**.
+
+Le fichier produit est un IPA **non signé**. Il doit être signé avec ton identifiant Apple avant l'installation, par exemple via un outil de sideloading tel que Sideloadly. Avec un compte Apple gratuit, la signature personnelle est temporaire et doit généralement être renouvelée tous les 7 jours.
+
+## État du prototype
+
+L'écran iOS actuel est une coque de connexion : il mémorise localement une adresse HTTPS puis ouvre son chemin `/mobile`. Il ne contient pas encore l'interface complète issue de ton fichier local `mobile.html`, et ne découvre pas encore automatiquement ton PC. Pour intégrer toutes les fonctions JARVIS, il faudra importer une copie nettoyée de cette interface dans `native-app/www/` et concevoir une connexion stable et protégée.
 
 ## Sécurité
 
