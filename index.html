@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050b16">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="JARVIS">
+  <title>JARVIS · Accès mobile</title>
+  <style>
+    :root{color-scheme:dark;--bg:#050b16;--panel:#0b1628;--line:#1b3552;--cyan:#5ee7ff;--muted:#9cb2c9}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100svh;padding:env(safe-area-inset-top) 20px env(safe-area-inset-bottom);display:grid;place-items:center;background:radial-gradient(ellipse at 50% 0%,#123354 0%,var(--bg) 58%);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#edf8ff}
+    main{width:min(100%,430px);padding:28px 22px;border:1px solid var(--line);border-radius:26px;background:linear-gradient(160deg,#0c1a2cF2,#07101df5);box-shadow:0 24px 80px #0008}
+    .mark{width:68px;height:68px;border:1px solid #5ee7ff88;border-radius:20px;display:grid;place-items:center;margin-bottom:22px;color:var(--cyan);font-size:27px;font-weight:800;letter-spacing:2px;box-shadow:inset 0 0 24px #5ee7ff12,0 0 35px #5ee7ff12}
+    .eyebrow{font-size:11px;letter-spacing:3px;color:var(--cyan);font-weight:700}
+    h1{font-size:30px;letter-spacing:2px;margin:8px 0}
+    p{color:var(--muted);line-height:1.55;font-size:14px}
+    label{display:block;margin:24px 0 8px;font-size:12px;font-weight:700;color:#c8dced}
+    input{width:100%;padding:15px 13px;border:1px solid #28445f;border-radius:12px;background:#030914;color:white;font-size:14px;outline:none}
+    input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #5ee7ff18}
+    button{width:100%;border:0;border-radius:12px;padding:15px;margin-top:12px;background:var(--cyan);color:#03101a;font-weight:800;font-size:15px;cursor:pointer}
+    .secondary{background:#102239;color:#d9efff;border:1px solid #28445f}
+    .status{font-size:12px;min-height:18px;margin-top:12px;color:var(--muted)}
+    .note{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:12px}
+    code{color:#b8efff;overflow-wrap:anywhere}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">J.</div>
+    <div class="eyebrow">PERSONAL SYSTEM · MOBILE ACCESS</div>
+    <h1>JARVIS</h1>
+    <p>Accès mobile à ton assistant personnel. Colle ici l’adresse actuelle du tunnel affichée au démarrage de JARVIS sur ton PC.</p>
+    <form id="access-form">
+      <label for="url">ADRESSE DU TUNNEL CLOUDFLARE</label>
+      <input id="url" type="url" inputmode="url" placeholder="https://....trycloudflare.com" autocomplete="url" required>
+      <button type="submit">CONNECTER À JARVIS ↗</button>
+      <button class="secondary" id="forget" type="button">Effacer l’adresse enregistrée</button>
+    </form>
+    <div class="status" id="status" role="status"></div>
+    <p class="note">L’adresse Quick Tunnel change lorsque tu relances le tunnel. Cette page ne la récupère pas automatiquement et ne publie aucune adresse. Ne partage pas l’adresse de ton tunnel : elle peut donner accès à ton interface JARVIS.</p>
+  </main>
+  <script>
+    const field = document.getElementById('url');
+    const status = document.getElementById('status');
+    try { field.value = localStorage.getItem('jarvisTunnelUrl') || ''; } catch(e) {}
+    function cleanUrl(value) {
+      const u = new URL(value.trim());
+      if (u.protocol !== 'https:' || !u.hostname.endsWith('.trycloudflare.com') || u.username || u.password) throw new Error('Entre une adresse HTTPS Cloudflare Quick Tunnel valide.');
+      return u.origin;
+    }
+    document.getElementById('access-form').addEventListener('submit', e => {
+      e.preventDefault();
+      try {
+        const url = cleanUrl(field.value);
+        try { localStorage.setItem('jarvisTunnelUrl', url); } catch(e) {}
+        status.textContent = 'Ouverture de JARVIS…';
+        location.href = url + '/mobile';
+      } catch(err) { status.textContent = err.message || 'Adresse invalide.'; }
+    });
+    document.getElementById('forget').addEventListener('click', () => {
+      field.value = '';
+      try { localStorage.removeItem('jarvisTunnelUrl'); } catch(e) {}
+      status.textContent = 'Adresse enregistrée effacée de cet appareil.';
+    });
+  </script>
+</body>
+</html>
