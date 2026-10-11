@@ -1,0 +1,64 @@
+name: Build JARVIS iOS app
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'native-app/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.ts'
+      - '.github/workflows/build-ios.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Add iOS platform
+        run: npx cap add ios
+
+      - name: Sync web app
+        run: npx cap sync ios
+
+      - name: Build unsigned iOS app
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH="build/ios/Build/Products/Release-iphoneos/App.app"
+          test -d "$APP_PATH"
+          mkdir -p ipa/Payload
+          cp -R "$APP_PATH" ipa/Payload/App.app
+          cd ipa
+          zip -r ../JARVIS-unsigned.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-unsigned-IPA
+          path: JARVIS-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
