@@ -22,7 +22,22 @@ Le fichier produit est un IPA **non signé**. Il doit être signé avec ton iden
 
 ## État du prototype
 
-L'écran iOS actuel est une coque de connexion : il mémorise localement une adresse HTTPS puis ouvre son chemin `/mobile`. Il ne contient pas encore l'interface complète issue de ton fichier local `mobile.html`, et ne découvre pas encore automatiquement ton PC. Pour intégrer toutes les fonctions JARVIS, il faudra importer une copie nettoyée de cette interface dans `native-app/www/` et concevoir une connexion stable et protégée.
+L'écran iOS propose maintenant un tableau de bord sombre, une configuration d'adresse HTTPS enregistrée sur l'iPhone, un test de joignabilité réseau et un accès à `/mobile`.
+
+**Limites actuelles :**
+- Le test réseau confirme seulement qu'une réponse arrive ; il ne vérifie pas que l'API JARVIS fonctionne ni que l'accès est authentifié.
+- Le tunnel Cloudflare Quick Tunnel n'est pas découvert automatiquement et son adresse peut changer au redémarrage.
+- Les raccourcis Assistant, Voix et PC ouvrent l'interface distante `/mobile`. La caméra et les actions natives ne sont pas encore raccordées.
+- L'interface complète de `mobile.html` n'est pas embarquée dans l'application.
+
+## Feuille de route technique
+
+1. **Connexion fiable :** ajouter une vraie route de santé côté serveur, avec une réponse JSON minimale et authentification.
+2. **Interface :** examiner l'interface actuelle `mobile.html` et décider si elle doit être embarquée dans Capacitor ou servie depuis le PC.
+3. **Assistant :** connecter la conversation aux routes existantes du serveur, avec gestion des erreurs et des réponses en cours.
+4. **Voix et caméra :** ajouter les permissions iOS et un parcours de test explicite.
+5. **Contrôle PC :** exposer uniquement des commandes autorisées, avec confirmation avant toute action sensible.
+6. **Sécurité :** éviter les secrets dans le dépôt, protéger l'accès distant et privilégier un tunnel privé/authentifié.
 
 ## Sécurité
 
