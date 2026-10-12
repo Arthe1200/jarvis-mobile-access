@@ -94,10 +94,12 @@
       <form id="access-form">
         <label for="url">ADRESSE DU SERVEUR</label>
         <input id="url" type="url" inputmode="url" placeholder="https://ton-adresse.example" autocomplete="url" required>
-        <p class="help">Si tu utilises un tunnel temporaire, son adresse peut changer au prochain démarrage. Ne partage pas un lien privé.</p>
-        <button class="primary" type="submit">ENREGISTRER L’ADRESSE</button>
-        <button class="secondary" id="test-connection" type="button">Vérifier l’adresse sans ouvrir</button>
-        <button class="secondary" id="test-open" type="button">Ouvrir l’interface JARVIS</button>
+        <label for="bridge-token">CLÉ PRIVÉE DU PC</label>
+        <input id="bridge-token" type="password" autocomplete="off" placeholder="Clé générée sur le PC">
+        <p class="help">La clé autorise le démarrage de JARVIS par ton PC. Le tunnel doit pointer vers le pont JARVIS sur le port 8765, pas directement vers Flask.</p>
+        <button class="primary" type="submit">ENREGISTRER ET TESTER</button>
+        <button class="secondary" id="test-connection" type="button">Tester le PC et le serveur</button>
+        <button class="secondary" id="test-open" type="button">Connecter et ouvrir JARVIS</button>
         <button class="secondary" id="forget" type="button">Effacer l’adresse mémorisée</button>
       </form>
       <div class="status-msg" id="settings-status" role="status"></div>
