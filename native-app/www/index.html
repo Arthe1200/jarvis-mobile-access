@@ -118,13 +118,19 @@
   <script>
     const $ = id => document.getElementById(id);
     const field = $('url');
+    const tokenField = $('bridge-token');
     const mainStatus = $('main-status');
     const settingsStatus = $('settings-status');
     const dot = $('status-dot');
     const connectionLabel = $('connection-label');
     let serverUrl = '';
-    try { serverUrl = localStorage.getItem('jarvisServerUrl') || ''; } catch (e) {}
+    let bridgeToken = '';
+    try {
+      serverUrl = localStorage.getItem('jarvisServerUrl') || '';
+      bridgeToken = localStorage.getItem('jarvisBridgeToken') || '';
+    } catch (e) {}
     field.value = serverUrl;
+    tokenField.value = bridgeToken;
 
     function normalizedOrigin(value) {
       const u = new URL(value.trim());
@@ -135,90 +141,140 @@
     }
     function setConnectionState(state, message) {
       dot.className = 'dot' + (state === 'connected' ? ' connected' : state === 'offline' ? ' offline' : '');
-      connectionLabel.textContent = state === 'connected' ? 'Serveur ouvert' : state === 'saved' ? 'Adresse enregistrée · non testée' : state === 'offline' ? 'Connexion à configurer' : 'PC non vérifié';
+      connectionLabel.textContent = state === 'connected' ? 'JARVIS connecté' : state === 'saved' ? 'Adresse enregistrée · à tester' : state === 'offline' ? 'Connexion indisponible' : 'PC non vérifié';
       mainStatus.textContent = message;
     }
-    function saveUrl() {
+    function saveSettings() {
       try {
         serverUrl = normalizedOrigin(field.value);
+        bridgeToken = tokenField.value.trim();
+        if (!bridgeToken) throw new Error('Colle la clé privée générée sur le PC.');
         localStorage.setItem('jarvisServerUrl', serverUrl);
+        localStorage.setItem('jarvisBridgeToken', bridgeToken);
         field.value = serverUrl;
-        setConnectionState('saved', 'Adresse enregistrée sur cet iPhone. Appuie sur « Ouvrir JARVIS » pour tester la connexion.');
-        settingsStatus.textContent = 'Adresse HTTPS enregistrée sur cet appareil.';
+        settingsStatus.textContent = 'Adresse et clé enregistrées sur cet iPhone.';
         return true;
       } catch (err) {
-        settingsStatus.textContent = err.message || 'Adresse invalide.';
+        settingsStatus.textContent = err.message || 'Configuration invalide.';
         return false;
       }
     }
+    async function bridgeRequest(path, options = {}) {
+      if (!serverUrl) throw new Error('Adresse du tunnel non configurée.');
+      if (!bridgeToken) throw new Error('Clé privée du PC manquante.');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), options.timeout || 7000);
+      try {
+        const response = await fetch(serverUrl + path, {
+          method: options.method || 'GET',
+          mode: 'cors',
+          cache: 'no-store',
+          signal: controller.signal,
+          headers: {
+            'Authorization': 'Bearer ' + bridgeToken,
+            ...(options.method === 'POST' ? {'Content-Type': 'application/json'} : {})
+          },
+          body: options.method === 'POST' ? '{}' : undefined
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Réponse HTTP ' + response.status);
+        return data;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    async function ensureServerStarted() {
+      settingsStatus.textContent = 'Vérification du pont Windows…';
+      const state = await bridgeRequest('/bridge/status');
+      if (state.server === 'online') return;
+      settingsStatus.textContent = 'Le PC répond, JARVIS est arrêté. Demande de démarrage…';
+      await bridgeRequest('/bridge/start', {method:'POST', timeout:25000});
+      for (let i = 0; i < 20; i++) {
+        await sleep(1000);
+        const next = await bridgeRequest('/bridge/status');
+        if (next.server === 'online') return;
+      }
+      throw new Error('Le démarrage a été demandé, mais Flask ne répond pas après 20 secondes. Vérifie le journal du pont sur le PC.');
+    }
     async function testConnection() {
-      if (!saveUrl()) return;
+      if (!saveSettings()) return;
       const button = $('test-connection');
       button.disabled = true;
       button.textContent = 'Vérification…';
-      settingsStatus.textContent = 'Tentative de contact du serveur (8 secondes maximum)…';
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
       try {
-        // no-cors permet de tester le réseau, pas de valider l’API ni l’authentification.
-        await fetch(serverUrl + '/mobile', { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
-        setConnectionState('saved', 'Une réponse réseau est arrivée. L’interface et les autorisations restent à confirmer.');
-        settingsStatus.textContent = 'Adresse joignable au niveau réseau. Ouvre JARVIS pour confirmer son fonctionnement.';
+        const state = await bridgeRequest('/bridge/status');
+        if (state.server === 'online') {
+          setConnectionState('connected', 'Le pont Windows et le serveur JARVIS répondent.');
+          settingsStatus.textContent = 'Connexion OK : pont Windows joignable, Flask en ligne.';
+        } else {
+          setConnectionState('saved', 'Le PC est joignable, mais le serveur JARVIS est arrêté.');
+          settingsStatus.textContent = 'Le pont est prêt. Appuie sur « Connecter et ouvrir JARVIS » pour le démarrer.';
+        }
       } catch (err) {
-        setConnectionState('offline', 'Impossible de joindre cette adresse pour le moment. Vérifie le tunnel et le serveur PC.');
-        settingsStatus.textContent = err.name === 'AbortError' ? 'Délai dépassé après 8 secondes.' : 'Échec réseau : vérifie l’adresse HTTPS, le tunnel et la connexion Internet.';
+        setConnectionState('offline', 'Le pont du PC est injoignable. Vérifie le tunnel, le port 8765 et la clé.');
+        settingsStatus.textContent = err.name === 'AbortError' ? 'Délai dépassé.' : (err.message || 'Échec réseau.');
       } finally {
-        clearTimeout(timeout);
         button.disabled = false;
-        button.textContent = 'Vérifier l’adresse sans ouvrir';
+        button.textContent = 'Tester le PC et le serveur';
       }
     }
-    function openRemote() {
-      if (!serverUrl) {
+    async function openRemote() {
+      if (!saveSettings()) { showView('connection'); return; }
+      const button = $('open-jarvis');
+      button.disabled = true;
+      button.textContent = 'CONNEXION…';
+      setConnectionState('saved', 'Vérification du PC et démarrage éventuel de JARVIS…');
+      try {
+        await ensureServerStarted();
+        setConnectionState('connected', 'JARVIS est en ligne. Ouverture de l’interface…');
+        location.href = serverUrl + '/mobile';
+      } catch (err) {
+        setConnectionState('offline', 'Connexion impossible pour le moment.');
+        settingsStatus.textContent = err.name === 'AbortError'
+          ? 'Délai dépassé. Vérifie que le pont Windows tourne et que le tunnel pointe vers le port 8765.'
+          : (err.message || 'Impossible de démarrer JARVIS.');
         showView('connection');
-        settingsStatus.textContent = 'Entre d’abord l’adresse HTTPS de ton serveur JARVIS.';
-        field.focus();
-        return;
+      } finally {
+        button.disabled = false;
+        button.textContent = 'OUVRIR JARVIS ↗';
       }
-      mainStatus.textContent = 'Ouverture de l’interface JARVIS…';
-      location.href = serverUrl + '/mobile';
     }
     function showView(view) {
       const isConnection = view === 'connection';
       $('home-view').classList.toggle('hidden', isConnection);
       $('connection-panel').classList.toggle('show', isConnection);
       document.querySelectorAll('.nav-btn[data-view]').forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
-      if (isConnection) field.value = serverUrl;
+      if (isConnection) { field.value = serverUrl; tokenField.value = bridgeToken; }
       window.scrollTo({top:0,behavior:'smooth'});
     }
-    $('access-form').addEventListener('submit', e => {
+    $('access-form').addEventListener('submit', async e => {
       e.preventDefault();
-      if (saveUrl()) showView('home');
+      if (saveSettings()) await testConnection();
     });
     $('open-jarvis').addEventListener('click', openRemote);
     $('test-connection').addEventListener('click', testConnection);
-    $('test-open').addEventListener('click', () => { if (saveUrl()) openRemote(); });
+    $('test-open').addEventListener('click', openRemote);
     $('configure').addEventListener('click', () => showView('connection'));
     $('settings-shortcut').addEventListener('click', () => showView('connection'));
     $('nav-open').addEventListener('click', openRemote);
     document.querySelectorAll('.nav-btn[data-view]').forEach(btn => btn.addEventListener('click', () => showView(btn.dataset.view)));
     ['chat-tile','voice-tile','pc-tile'].forEach(id => $(id).addEventListener('click', openRemote));
     $('camera-tile').addEventListener('click', () => {
-      mainStatus.textContent = 'La caméra et l’envoi de photos seront raccordés après validation des routes du serveur JARVIS.';
+      mainStatus.textContent = 'La caméra n’est pas encore raccordée au serveur.';
       showView('home');
     });
     $('forget').addEventListener('click', () => {
-      serverUrl = '';
-      field.value = '';
-      try { localStorage.removeItem('jarvisServerUrl'); } catch (e) {}
-      setConnectionState('offline', 'Adresse effacée. Configure la connexion pour utiliser JARVIS.');
-      settingsStatus.textContent = 'Adresse effacée de cet appareil.';
+      serverUrl = ''; bridgeToken = '';
+      field.value = ''; tokenField.value = '';
+      try { localStorage.removeItem('jarvisServerUrl'); localStorage.removeItem('jarvisBridgeToken'); } catch (e) {}
+      setConnectionState('offline', 'Adresse et clé effacées. Configure la connexion pour utiliser JARVIS.');
+      settingsStatus.textContent = 'Configuration effacée de cet appareil.';
     });
-    if (serverUrl) {
-      field.value = serverUrl;
-      setConnectionState('saved', 'Adresse enregistrée. Le serveur n’est pas testé en arrière-plan ; ouvre JARVIS pour vérifier.');
+    if (serverUrl && bridgeToken) {
+      setConnectionState('saved', 'Configuration enregistrée. Appuie sur « Ouvrir JARVIS » pour tester et démarrer le serveur si nécessaire.');
     } else {
-      setConnectionState('offline', 'Configure l’adresse HTTPS de ton serveur pour commencer.');
+      setConnectionState('offline', 'Configure l’adresse HTTPS du tunnel et la clé privée du PC.');
     }
   </script>
 </body>
