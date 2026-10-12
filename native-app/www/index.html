@@ -96,7 +96,8 @@
         <input id="url" type="url" inputmode="url" placeholder="https://ton-adresse.example" autocomplete="url" required>
         <p class="help">Si tu utilises un tunnel temporaire, son adresse peut changer au prochain démarrage. Ne partage pas un lien privé.</p>
         <button class="primary" type="submit">ENREGISTRER L’ADRESSE</button>
-        <button class="secondary" id="test-open" type="button">Tester en ouvrant JARVIS</button>
+        <button class="secondary" id="test-connection" type="button">Vérifier l’adresse sans ouvrir</button>
+        <button class="secondary" id="test-open" type="button">Ouvrir l’interface JARVIS</button>
         <button class="secondary" id="forget" type="button">Effacer l’adresse mémorisée</button>
       </form>
       <div class="status-msg" id="settings-status" role="status"></div>
@@ -148,6 +149,28 @@
         return false;
       }
     }
+    async function testConnection() {
+      if (!saveUrl()) return;
+      const button = $('test-connection');
+      button.disabled = true;
+      button.textContent = 'Vérification…';
+      settingsStatus.textContent = 'Tentative de contact du serveur (8 secondes maximum)…';
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      try {
+        // no-cors permet de tester le réseau, pas de valider l’API ni l’authentification.
+        await fetch(serverUrl + '/mobile', { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal });
+        setConnectionState('saved', 'Une réponse réseau est arrivée. L’interface et les autorisations restent à confirmer.');
+        settingsStatus.textContent = 'Adresse joignable au niveau réseau. Ouvre JARVIS pour confirmer son fonctionnement.';
+      } catch (err) {
+        setConnectionState('offline', 'Impossible de joindre cette adresse pour le moment. Vérifie le tunnel et le serveur PC.');
+        settingsStatus.textContent = err.name === 'AbortError' ? 'Délai dépassé après 8 secondes.' : 'Échec réseau : vérifie l’adresse HTTPS, le tunnel et la connexion Internet.';
+      } finally {
+        clearTimeout(timeout);
+        button.disabled = false;
+        button.textContent = 'Vérifier l’adresse sans ouvrir';
+      }
+    }
     function openRemote() {
       if (!serverUrl) {
         showView('connection');
@@ -171,6 +194,7 @@
       if (saveUrl()) showView('home');
     });
     $('open-jarvis').addEventListener('click', openRemote);
+    $('test-connection').addEventListener('click', testConnection);
     $('test-open').addEventListener('click', () => { if (saveUrl()) openRemote(); });
     $('configure').addEventListener('click', () => showView('connection'));
     $('settings-shortcut').addEventListener('click', () => showView('connection'));
