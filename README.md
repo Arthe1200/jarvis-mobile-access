@@ -1,46 +1,39 @@
 # JARVIS Mobile Access
 
-Ce dépôt contient deux éléments :
-- une page d'accès statique publiée avec GitHub Pages ;
-- un premier prototype d'application iOS Capacitor, compilé sur un runner macOS de GitHub Actions.
+Cette version comprend l'application compagnon iOS et un pont Windows pour démarrer le serveur Flask JARVIS à la demande.
 
-## Page d'accès web
+## Configuration Windows (à faire une seule fois)
 
-Adresse : https://arthe1200.github.io/jarvis-mobile-access/
+1. Télécharge les fichiers windows/JARVIS_Mobile_Bridge.py et windows/JARVIS_Setup_Mobile_Bridge.ps1 depuis le dépôt et place-les dans le même dossier.
+2. Vérifie que Python est installé et que python.exe fonctionne dans PowerShell.
+3. Ouvre PowerShell dans ce dossier et lance :
+   powershell
+   Set-ExecutionPolicy -Scope Process Bypass
+   .\JARVIS_Setup_Mobile_Bridge.ps1
+4. Copie la clé privée affichée par le script et garde-la secrète. Elle est aussi enregistrée localement dans %LOCALAPPDATA%\JARVIS\mobile-bridge.json.
+5. Le script installe une tâche à l'ouverture de session Windows et lance le pont sur 127.0.0.1:8765.
 
-La page demande l'adresse HTTPS actuelle du Cloudflare Quick Tunnel et ouvre ensuite `/mobile` sur ce tunnel. Le Quick Tunnel change généralement à chaque redémarrage, donc cette page ne peut pas découvrir automatiquement la nouvelle adresse.
+Le pont démarre actions.py si http://127.0.0.1:5000/ping ne répond pas, puis relaie les requêtes vers Flask.
 
-## Construire le prototype iOS
+## Tunnel Cloudflare
 
-1. Ouvre l'onglet **Actions** du dépôt : https://github.com/Arthe1200/jarvis-mobile-access/actions
-2. Sélectionne **Build JARVIS iOS app**.
-3. Clique sur **Run workflow**, puis confirme sur la branche `main`.
-4. Attends que le workflow soit terminé avec le statut vert.
-5. Ouvre l'exécution et télécharge l'artifact **JARVIS-unsigned-IPA**.
+Le tunnel doit pointer vers le pont, et non directement vers Flask :
 
-Le fichier produit est un IPA **non signé**. Il doit être signé avec ton identifiant Apple avant l'installation, par exemple via un outil de sideloading tel que Sideloadly. Avec un compte Apple gratuit, la signature personnelle est temporaire et doit généralement être renouvelée tous les 7 jours.
+   powershell
+   cloudflared tunnel --url http://127.0.0.1:8765
 
-## État du prototype
+Entre l'URL HTTPS https://....trycloudflare.com affichée dans l'application et la clé privée ci-dessus. Tant que le processus Quick Tunnel reste lancé, cette URL peut être utilisée même si Flask s'arrête puis redémarre. Si le tunnel est arrêté ou recréé, son URL temporaire change : il faudra la mettre à jour dans l'application. Pour un accès permanent après redémarrage, configure un tunnel Cloudflare nommé avec un domaine stable.
 
-L'écran iOS propose maintenant un tableau de bord sombre, une configuration d'adresse HTTPS enregistrée sur l'iPhone, un test de joignabilité réseau et un accès à `/mobile`.
+## Construire l'application iOS
 
-**Limites actuelles :**
-- Le test réseau confirme seulement qu'une réponse arrive ; il ne vérifie pas que l'API JARVIS fonctionne ni que l'accès est authentifié.
-- Le tunnel Cloudflare Quick Tunnel n'est pas découvert automatiquement et son adresse peut changer au redémarrage.
-- Les raccourcis Assistant, Voix et PC ouvrent l'interface distante `/mobile`. La caméra et les actions natives ne sont pas encore raccordées.
-- L'interface complète de `mobile.html` n'est pas embarquée dans l'application.
+1. Ouvre l'onglet Actions : https://github.com/Arthe1200/jarvis-mobile-access/actions
+2. Lance Build JARVIS iOS app sur la branche main.
+3. Télécharge l'artifact JARVIS-unsigned-IPA.
+4. L'IPA n'est pas signé : signe-le avec ton identifiant Apple via un outil de sideloading avant de l'installer.
 
-## Feuille de route technique
+## Limites honnêtes
 
-1. **Connexion fiable :** ajouter une vraie route de santé côté serveur, avec une réponse JSON minimale et authentification.
-2. **Interface :** examiner l'interface actuelle `mobile.html` et décider si elle doit être embarquée dans Capacitor ou servie depuis le PC.
-3. **Assistant :** connecter la conversation aux routes existantes du serveur, avec gestion des erreurs et des réponses en cours.
-4. **Voix et caméra :** ajouter les permissions iOS et un parcours de test explicite.
-5. **Contrôle PC :** exposer uniquement des commandes autorisées, avec confirmation avant toute action sensible.
-6. **Sécurité :** éviter les secrets dans le dépôt, protéger l'accès distant et privilégier un tunnel privé/authentifié.
-
-## Sécurité
-
-- Ne committe jamais une adresse active de tunnel, un jeton DuckDNS, un mot de passe, une clé VAPID privée ou toute autre donnée secrète.
-- Ne considère pas une adresse de tunnel comme une authentification. Toute personne qui obtient l'adresse peut essayer d'accéder à l'interface exposée.
-- Pour une utilisation durable, protège l'accès à JARVIS avec une authentification solide ou une couche d'accès privée avant d'y connecter des fonctions sensibles.
+- Le pont démarre uniquement le serveur Flask sur un PC déjà allumé et connecté à sa session Windows. Il ne réveille pas un PC éteint.
+- Le tunnel doit être déjà lancé et rester accessible. Un Quick Tunnel ne permet pas de retrouver automatiquement sa nouvelle URL après un redémarrage.
+- La clé autorise le démarrage de Flask ; ne la partage pas. Le pont n'expose que l'adresse locale 127.0.0.1 et ne doit être utilisé qu'avec un tunnel de confiance.
+- Les raccourcis Assistant/Voix/PC ouvrent l'interface existante /mobile. La caméra et les fonctions natives ne sont pas encore implémentées par ce pont.
