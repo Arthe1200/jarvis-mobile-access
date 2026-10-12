@@ -272,9 +272,13 @@
       settingsStatus.textContent = 'Configuration effacée de cet appareil.';
     });
     if (serverUrl && bridgeToken) {
-      setConnectionState('saved', 'Configuration enregistrée. Appuie sur « Ouvrir JARVIS » pour tester et démarrer le serveur si nécessaire.');
+      setConnectionState('saved', 'Connexion mémorisée. Connexion automatique à JARVIS…');
+      // Reconnect automatically when the app opens; no need to revisit settings.
+      window.addEventListener('load', () => {
+        setTimeout(() => openRemote(), 250);
+      }, { once: true });
     } else {
-      setConnectionState('offline', 'Configure l’adresse HTTPS du tunnel et la clé privée du PC.');
+      setConnectionState('offline', 'Configuration initiale requise une seule fois : adresse du pont et clé privée du PC.');
     }
   </script>
 </body>
