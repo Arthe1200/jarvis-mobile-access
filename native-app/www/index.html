@@ -132,7 +132,7 @@
     }
     function setConnectionState(state, message) {
       dot.className = 'dot' + (state === 'connected' ? ' connected' : state === 'offline' ? ' offline' : '');
-      connectionLabel.textContent = state === 'connected' ? 'Adresse enregistrée · serveur à ouvrir' : state === 'offline' ? 'Connexion à vérifier' : 'PC non vérifié';
+      connectionLabel.textContent = state === 'connected' ? 'Serveur ouvert' : state === 'saved' ? 'Adresse enregistrée · non testée' : state === 'offline' ? 'Connexion à configurer' : 'PC non vérifié';
       mainStatus.textContent = message;
     }
     function saveUrl() {
@@ -140,7 +140,7 @@
         serverUrl = normalizedOrigin(field.value);
         localStorage.setItem('jarvisServerUrl', serverUrl);
         field.value = serverUrl;
-        setConnectionState('connected', 'Adresse enregistrée sur cet iPhone. Appuie sur « Ouvrir JARVIS » pour tester la connexion.');
+        setConnectionState('saved', 'Adresse enregistrée sur cet iPhone. Appuie sur « Ouvrir JARVIS » pour tester la connexion.');
         settingsStatus.textContent = 'Adresse HTTPS enregistrée sur cet appareil.';
         return true;
       } catch (err) {
@@ -190,7 +190,7 @@
     });
     if (serverUrl) {
       field.value = serverUrl;
-      setConnectionState('connected', 'Adresse enregistrée. Le serveur n’est pas testé en arrière-plan ; ouvre JARVIS pour vérifier.');
+      setConnectionState('saved', 'Adresse enregistrée. Le serveur n’est pas testé en arrière-plan ; ouvre JARVIS pour vérifier.');
     } else {
       setConnectionState('offline', 'Configure l’adresse HTTPS de ton serveur pour commencer.');
     }
